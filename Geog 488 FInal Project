@@ -1,0 +1,852 @@
+Impacts of Antarctic Sea Ice Decline on Emperor Penguin Colony Stability
+Topic Summary
+1. What geography is your project situated in?
+
+My project is situated in Antarctica, the coldest and fifth largest continent on Earth. Although it is known for its extreme climate, many parts of Antarctica are now warming at some of the fastest rates on the planet. As ice melts, it contributes to global sea level rise, and warming ocean temperatures are disrupting the marine ecosystems that depend on stable sea ice.
+A big part of Antarctica’s geography is its sea ice, which plays an important role in the Earth’s climate. Sea ice helps:
+
+Reflect sunlight (the ice albedo effect), which keeps the planet cooler
+
+Support ecosystems
+
+Influence storms and weather patterns
+
+Drive ocean currents that move heat and nutrients around the globe
+
+2. What research topic are you interested in?
+
+I’m interested in studying how the decline of Antarctic sea ice affects the stability of emperor penguin colonies. Emperor penguins rely on solid, stable sea ice to survive, especially during breeding and molting. They build their colonies on fast ice (sea ice that is firmly attached to the coastline) and they need about nine months of stable ice each year to successfully raise their chicks. They also depend on stable sea ice during their annual molting period, which happens around late Decemeber/early January. This stage is called “catastrophic molting” because they shed all their feathers at once. Molting is a stressful and energy intensive process. Penguins can lose 40–50% of their body weight while growing new feathers, making them especially vulnerable if the ice beneath them breaks up too early.
+
+Sea ice forms when seawater freezes. It expands in winter and melts in summer, and at its maximum winter extent, it nearly doubles the size of Antarctica when viewed from space. Because emperor penguins depend so heavily on this ice, any changes to its timing, thickness, or stability directly affect their survival.
+
+In recent years, emperor penguins have become increasingly vulnerable. Their population was already decreasing, and now the species has been moved from near threatened to endangered because of a catastrophic event that happened in Antarctica where there was a sudden collapse of sea ice, which led to the mass drowning of emperor penguin chicks. As sea ice becomes less reliable, some colonies are being forced to relocate, and scientists warn that if current trends continue, emperor penguins could face extinction.
+
+3. What research question are you trying to answer?
+
+How does the rate of Antarctic sea ice decline affect emperor penguin colony stability over time and across locations?
+
+DATA SOURCE:
+a. Name of dataset
+
+Sea Ice Index, Version 4
+MAPPPD The Global Penguin Database for Antarctica
+Daily Antarctic Marginal Ice Zone (MIZ) and Overlay Shapefile
+b. Source for the dataset. Name of source and URL
+
+NOAA@NSIDC - https://nsidc.org/data/g02135/versions/4#anchor-overview
+MAPPPD v4.4 - https://www.oceanites.org/mapppd
+MIZ Shapefile - https://usicecenter.gov/Products/AntarcData
+
+c. Data (Feature, Raster, or Tabular Data?)
+
+All of the above (feature, raster, or tabular data)
+
+d. If spatial in nature, what is the coordinate reference system on the data?
+
+The emperor penguin count is set to EPSG:4326
+
+e. Will it need to be modified and if so how?
+
+Yes, reprojecting to Antarctica's CRS EPSG:3031 to clip emperor penguin locations
+
+f. What are important fields that you will be using? If no fields are available, then what is your data measuring? How does the information pertain to your topic, questions, hypotheses?
+
+Lat, Long, Year, and Month are the fields that I will be using. Using these columns will help me to see where the colonies that are being affected with the sea ice declining and when the sea ice is shrinking.
+
+g. Describe your data types.
+
+Sea Ice Index, Version 4 This dataset is primarily tabular data derived from raster data. It is based on satellite imagery.
+MAPPPD – The Global Penguin Database for Antarctica This dataset is feature data in the form of points, along with tabular attributes. Each point represents a penguin colony location, and the attribute table includes details such as species and population size.
+Daily Antarctic Marginal Ice Zone (MIZ) Shapefile This dataset is feature data, typically polygons or lines. It represents the spatial boundaries of the marginal ice zone, stored in a shapefile format.
+
+h. Provide some summary stats for your data. Plots, histograms, min/max, corr matrices, etc. Your data may not need every kind of plot, matrix, or histogram.
+
+A line graph for a time series analysis on Sea Ice Extent to show trends over the years and another line graph for a time series analysis on Emperor Penguin population over the years as well.
+
+i. Limitations:
+
+Trying to find updated Emperor penguin population data is hard to come across. Some datasets have different time ranges compared to the sea ice data and some populations were only covered in certain areas, not all of antarctica.
+
+j. Literature Review
+Everything about Emperor Penguins: https://www.asoc.org/learn/emperor-penguin/
+Antarctica and Climate Change: https://niwa.co.nz/antarctica/climate-change-information-climate-solvers/antarctica-and-climate
+Antarctica and Emperor Penguins: https://news.mongabay.com/2026/03/accidental-discovery-reveals-new-climate-threat-to-emperor-penguins/ and https://www.bbc.com/news/articles/c204626888zo
+Emperor Penguin Breeding Cycle: https://www.antarctica.gov.au/about-antarctica/animals/penguins/emperor-penguin/breeding-cycle/
+
+1. Setting up Environment
+import os
+import requests
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import geopandas as gpd
+from shapely.geometry import Point
+
+2. Bringing in Sea Ice Dataset
+
+Sidenote: Asked chatgpt to help me figure out a code that would bring all my monthly sea ice extent data for the years 2012 - 2022 together so I'm able to create a time series analysis.
+This code loops through each month, loads the corresponding sea ice data file, cleans the column names, filters the data to include only years from 2012 to 2022, adds a column identifying the month, and stores each cleaned dataset in a dictionary organized by month.
+New Update
+Importing changes (Updating years to showcase 2010-2022 for sea ice extent data)
+
+months = ['January','February','March','April','May','June',
+          'July','August','September','October','November','December']
+
+seaice = {}
+
+for month in months:
+    df = pd.read_csv(f'/content/drive/MyDrive/Geog 488 Project Data/SeaIce{month}.csv')
+    df.columns = df.columns.str.strip()
+
+    df_filtered = df[df['year'].between(2010, 2022)].copy()
+
+    df_filtered['month'] = month
+
+    seaice[month] = df_filtered
+
+This code combines all the monthly datasets stored in the dictionary into one single DataFrame and resets the row indices. I had it preview "100" rows so I can make sure that all the months over the years that I wanted are on there.
+combined_df = pd.concat(seaice.values(), ignore_index=True)
+
+combined_df.head(100)
+
+Yearly Time Series Analysis for Extent and Emperor Penguin Population
+Extent: The total area of ocean where sea ice is present, counting all grid cells that have at least a minimal amount of ice
+This code calculates the average sea ice extent for each year, then creates a line graph to show how it changes over time, with labels and a grid for clarity.
+
+New Update
+Sea ice extent in millions of square km
+Sea ice area in millions of square km
+
+extent_yearly = combined_df.groupby('year')['extent'].mean().reset_index()
+
+plt.figure(figsize=(8,5))
+
+plt.plot(extent_yearly['year'],
+         extent_yearly['extent'],
+         marker='o')
+
+plt.title('Average Sea Ice Extent (2010–2022)')
+plt.xlabel('Year')
+plt.ylabel('Extent')
+plt.grid(True)
+
+plt.show()
+
+New Update
+Yearly Time Series Analysis for Area and Emperor Penguin Population
+Area: The actual physical area covered by sea ice, weighted by concentration.
+
+area_yearly = combined_df.groupby('year')['area'].mean().reset_index()
+
+plt.figure(figsize=(8,5))
+
+plt.plot(area_yearly['year'],
+         area_yearly['area'],
+         marker='o')
+
+plt.title('Average Sea Ice Area (2010–2022)')
+plt.xlabel('Year')
+plt.ylabel('Area')
+plt.grid(True)
+
+plt.show()
+
+Emperor Penguin Population Dataset
+This code reads the penguin data, keeps only emperor penguins from 2012–2022, and shows a preview of the data.
+
+peng_pop = pd.read_csv('/content/drive/MyDrive/Geog 488 Project Data/EmperorPenguinCount.csv')
+
+peng_pop = peng_pop[
+    (peng_pop['year'].between(2012, 2022)) &
+    (peng_pop['common_name'] == 'emperor penguin')
+]
+
+peng_pop.head()
+
+This code sorts the penguin data by year, calculates the total population for each year, and creates a line graph showing how the population changes over time, with labels added to each data point.
+
+peng_pop = peng_pop.sort_values('year')
+
+peng_yearly = peng_pop.groupby('year')['penguin_count'].sum().reset_index()
+
+plt.figure(figsize=(8,5))
+
+plt.plot(peng_yearly['year'], peng_yearly['penguin_count'], marker='o')
+
+plt.xlabel('Year')
+plt.ylabel('Population')
+plt.title('Emperor Penguin Population (2012–2022)')
+plt.grid(True)
+
+for i, row in peng_yearly.iterrows(): # adds penguin population count
+    plt.text(row['year'], row['penguin_count'], str(row['penguin_count']),
+             ha='center', va='bottom', fontsize=8)
+plt.show()
+
+This code combines the penguin population data and the 2010 sea ice extent data into one dataset, so I can plot both on a graph to compare trends.
+
+comparison = pd.merge(
+    extent_yearly,
+    peng_yearly,
+    on='year',
+    how='left'
+)
+
+fig, ax1 = plt.subplots(figsize=(9,5))
+
+# Emperor Penguins
+ax1.plot(comparison['year'],
+         comparison['penguin_count'],
+         color='blue',
+         marker='o',
+         label='Penguins')
+
+ax1.set_ylabel('Penguin Population', color='blue')
+ax1.tick_params(axis='y', labelcolor='blue')
+
+# Sea ice extent
+ax2 = ax1.twinx()
+
+ax2.plot(comparison['year'],
+         comparison['extent'],
+         color='red',
+         marker='o',
+         label='Sea Ice Extent')
+
+ax2.set_ylabel('Sea Ice Extent', color='red')
+ax2.tick_params(axis='y', labelcolor='red')
+
+plt.title('Emperor Penguins vs Sea Ice Extent (2010–2022)')
+
+plt.show()
+
+This code combines the penguin population data and the sea ice data into one dataset by matching them on the year, so I can plot both on a graph to compare trends.
+
+comparison = pd.merge(
+    peng_yearly,
+    extent_yearly,
+    on='year'
+)
+
+fig, ax1 = plt.subplots(figsize=(9,5))
+
+# Emperor penguins
+ax1.plot(comparison['year'], comparison['penguin_count'],
+         color='blue', marker='o', label='Penguins')
+
+ax1.set_ylabel('Penguin Population', color='blue')
+ax1.tick_params(axis='y', labelcolor='blue')
+
+# Sea ice extent on second axis
+ax2 = ax1.twinx()
+
+ax2.plot(comparison['year'], comparison['extent'],
+         color='red', marker='o', label='Sea Ice Extent')
+
+ax2.set_ylabel('Sea Ice Extent', color='red')
+ax2.tick_params(axis='y', labelcolor='red')
+
+plt.title('Emperor Penguins vs Sea Ice Extent (2012–2022)')
+
+plt.show()
+
+Antarctica Sea Ice Comparison over the years 2014 (when sea ice was the highest) and 2022 (when sea ice was the lowest)
+Year 2014 Sea Ice Extent Data
+Sidenote: Asked chatgpt to help me figure out how I can showcase the sea ice extent shapefiles for the months of april, june, sept, and nov together.
+April is when the breeding season begins for Emperor Penguins where they display courtship behavior. This is also when the sea ice starts to reform. again and thicken to support thousands of penguins during this time.
+June is when the female emperor penguin lays a single egg and the male emperor penguin is tasked with keeping the egg warm until it hatches in late July/early August. This is when maximum winter conditions begin.
+September is when sea ice is widespread and the baby chicks are roaming around the area.
+November is when the baby chicks are larger and in groups with others and they are preparing for the molting process so they can be able to dive and be independent by late December/early January when the sea ice starts breaking.
+
+This code loads the several shapefiles containing sea ice extent for different months in 2014 and it amke sures that they can be read properly by enabling shapefile recovery. It then assigns all datasets the same Antarctic coordinate reference system so they align correctly for mapping and comparison.
+
+os.environ["SHAPE_RESTORE_SHX"] = "YES" # recover missing shapefile index files
+
+# Load sea ice polygons
+ice_apr = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201404_polygon_v4.0.shp")
+ice_jun = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201406_polygon_v4.0.shp")
+ice_sep = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201409_polygon_v4.0.shp")
+ice_nov = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201411_polygon_v4.0.shp")
+
+for ice in [ice_apr, ice_jun, ice_sep, ice_nov]:
+    ice.set_crs("EPSG:3031", allow_override=True, inplace=True)
+
+This code is converting emperor penguin location data into a map ready format and puts it into the same coordinate system as the sea ice data so they can be analyzed or plotted together.
+
+# Load CSV
+peng_df = pd.read_csv("/content/drive/MyDrive/Geog 488 Project Data/EmperorPenguinCount.csv")
+
+# Convert to GeoDataFrame (lat/lon)
+geometry = [Point(xy) for xy in zip(peng_df['longitude_epsg_4326'], peng_df['latitude_epsg_4326'])]
+peng = gpd.GeoDataFrame(peng_df, geometry=geometry, crs="EPSG:4326")
+
+# Reproject emperor penguins to Antarctic projection
+peng_proj = peng.to_crs("EPSG:3031")
+
+This code prepares the Antarctica boundary so it matches the same map projection as the rest of the dataset, allowing all layers to be accurately overlaid on the same map.
+
+antarctica = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/Antarctica.shp")
+
+# Set the original CRS to EPSG:4326 before reprojecting
+antarctica = antarctica.set_crs("EPSG:4326", allow_override=True)
+
+# Make sure it's in the same CRS as your ice (EPSG:3031)
+antarctica = antarctica.to_crs("EPSG:3031")
+
+Impacts of Antarctic Sea Ice Decline on Emperor Penguin Colony Stability
+Topic Summary
+1. What geography is your project situated in?
+
+My project is situated in Antarctica, the coldest and fifth largest continent on Earth. Although it is known for its extreme climate, many parts of Antarctica are now warming at some of the fastest rates on the planet. As ice melts, it contributes to global sea level rise, and warming ocean temperatures are disrupting the marine ecosystems that depend on stable sea ice.
+A big part of Antarctica’s geography is its sea ice, which plays an important role in the Earth’s climate. Sea ice helps:
+
+Reflect sunlight (the ice albedo effect), which keeps the planet cooler
+
+Support ecosystems
+
+Influence storms and weather patterns
+
+Drive ocean currents that move heat and nutrients around the globe
+
+Antarctica.jpg
+
+2. What research topic are you interested in?
+
+I’m interested in studying how the decline of Antarctic sea ice affects the stability of emperor penguin colonies. Emperor penguins rely on solid, stable sea ice to survive, especially during breeding and molting. They build their colonies on fast ice (sea ice that is firmly attached to the coastline) and they need about nine months of stable ice each year to successfully raise their chicks. They also depend on stable sea ice during their annual molting period, which happens around late Decemeber/early January. This stage is called “catastrophic molting” because they shed all their feathers at once. Molting is a stressful and energy intensive process. Penguins can lose 40–50% of their body weight while growing new feathers, making them especially vulnerable if the ice beneath them breaks up too early.
+
+Sea ice forms when seawater freezes. It expands in winter and melts in summer, and at its maximum winter extent, it nearly doubles the size of Antarctica when viewed from space. Because emperor penguins depend so heavily on this ice, any changes to its timing, thickness, or stability directly affect their survival.
+
+In recent years, emperor penguins have become increasingly vulnerable. Their population was already decreasing, and now the species has been moved from near threatened to endangered because of a catastrophic event that happened in Antarctica where there was a sudden collapse of sea ice, which led to the mass drowning of emperor penguin chicks. As sea ice becomes less reliable, some colonies are being forced to relocate, and scientists warn that if current trends continue, emperor penguins could face extinction.
+
+Link if you want to read more about it: https://britbrief.co.uk/environment/extinction/emperor-penguin-chicks-drown-species-faces-extinction-risk.html and https://www.birdlife.org/news/2026/04/09/emperor-penguin-now-endangered-due-to-climate-change/
+
+Ice sheet and sea ice.jpg
+
+arctic-hero.jpg
+
+3. What research question are you trying to answer?
+
+How does the rate of Antarctic sea ice decline affect emperor penguin colony stability over time and across locations?
+250610-penguin-to-1109-21cbb8.webp
+
+frog_habitat_conservation_efforts.jpg
+
+DATA SOURCE:
+
+a. Name of dataset
+
+Sea Ice Index, Version 4
+MAPPPD The Global Penguin Database for Antarctica
+Daily Antarctic Marginal Ice Zone (MIZ) and Overlay Shapefile
+b. Source for the dataset. Name of source and URL
+
+NOAA@NSIDC - https://nsidc.org/data/g02135/versions/4#anchor-overview
+MAPPPD v4.4 - https://www.oceanites.org/mapppd
+MIZ Shapefile - https://usicecenter.gov/Products/AntarcData
+c. Data (Feature, Raster, or Tabular Data?)
+
+All of the above (feature, raster, or tabular data)
+d. If spatial in nature, what is the coordinate reference system on the data?
+
+The emperor penguin count is set to EPSG:4326
+e. Will it need to be modified and if so how?
+
+Yes, reprojecting to Antarctica's CRS EPSG:3031 to clip emperor penguin locations
+f. What are important fields that you will be using? If no fields are available, then what is your data measuring? How does the information pertain to your topic, questions, hypotheses?
+
+Lat, Long, Year, and Month are the fields that I will be using. Using these columns will help me to see where the colonies that are being affected with the sea ice declining and when the sea ice is shrinking.
+g. Describe your data types.
+
+Sea Ice Index, Version 4 This dataset is primarily tabular data derived from raster data. It is based on satellite imagery.
+MAPPPD – The Global Penguin Database for Antarctica This dataset is feature data in the form of points, along with tabular attributes. Each point represents a penguin colony location, and the attribute table includes details such as species and population size.
+Daily Antarctic Marginal Ice Zone (MIZ) Shapefile This dataset is feature data, typically polygons or lines. It represents the spatial boundaries of the marginal ice zone, stored in a shapefile format.
+h. Provide some summary stats for your data. Plots, histograms, min/max, corr matrices, etc. Your data may not need every kind of plot, matrix, or histogram.
+
+A line graph for a time series analysis on Sea Ice Extent to show trends over the years and another line graph for a time series analysis on Emperor Penguin population over the years as well.
+i. Limitations:
+
+Trying to find updated Emperor penguin population data is hard to come across. Some datasets have different time ranges compared to the sea ice data and some populations were only covered in certain areas, not all of antarctica.
+j. Literature Review
+
+Everything about Emperor Penguins: https://www.asoc.org/learn/emperor-penguin/
+Antarctica and Climate Change: https://niwa.co.nz/antarctica/climate-change-information-climate-solvers/antarctica-and-climate
+Antarctica and Emperor Penguins: https://news.mongabay.com/2026/03/accidental-discovery-reveals-new-climate-threat-to-emperor-penguins/ and https://www.bbc.com/news/articles/c204626888zo
+Emperor Penguin Breeding Cycle: https://www.antarctica.gov.au/about-antarctica/animals/penguins/emperor-penguin/breeding-cycle/
+family penguins.jpg
+
+baby penguin.jpg
+
+1. Setting up Environment
+
+
+[ ]
+import os
+import requests
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import geopandas as gpd
+from shapely.geometry import Point
+2. Bringing in Sea Ice Dataset
+
+Sidenote: Asked chatgpt to help me figure out a code that would bring all my monthly sea ice extent data for the years 2012 - 2022 together so I'm able to create a time series analysis.
+
+This code loops through each month, loads the corresponding sea ice data file, cleans the column names, filters the data to include only years from 2012 to 2022, adds a column identifying the month, and stores each cleaned dataset in a dictionary organized by month.
+New Update
+
+Importing changes (Updating years to showcase 2010-2022 for sea ice extent data)
+
+
+[ ]
+months = ['January','February','March','April','May','June',
+          'July','August','September','October','November','December']
+
+seaice = {}
+
+for month in months:
+    df = pd.read_csv(f'/content/drive/MyDrive/Geog 488 Project Data/SeaIce{month}.csv')
+    df.columns = df.columns.str.strip()
+
+    df_filtered = df[df['year'].between(2010, 2022)].copy()
+
+    df_filtered['month'] = month
+
+    seaice[month] = df_filtered
+This code combines all the monthly datasets stored in the dictionary into one single DataFrame and resets the row indices. I had it preview "100" rows so I can make sure that all the months over the years that I wanted are on there.
+
+[ ]
+combined_df = pd.concat(seaice.values(), ignore_index=True)
+
+combined_df.head(100)
+
+Yearly Time Series Analysis for Extent and Emperor Penguin Population
+
+Extent: The total area of ocean where sea ice is present, counting all grid cells that have at least a minimal amount of ice
+
+This code calculates the average sea ice extent for each year, then creates a line graph to show how it changes over time, with labels and a grid for clarity.
+New Update
+
+Sea ice extent in millions of square km
+Sea ice area in millions of square km
+
+[ ]
+plt.ylabel('Extent')
+plt.grid(True)
+
+plt.show()
+
+New Update
+
+Yearly Time Series Analysis for Area and Emperor Penguin Population
+
+Area: The actual physical area covered by sea ice, weighted by concentration.
+
+
+[ ]
+plt.ylabel('Area')
+plt.grid(True)
+
+plt.show()
+
+Emperor Penguin Population Dataset
+
+This code reads the penguin data, keeps only emperor penguins from 2012–2022, and shows a preview of the data.
+
+[ ]
+peng_pop = pd.read_csv('/content/drive/MyDrive/Geog 488 Project Data/EmperorPenguinCount.csv')
+
+peng_pop = peng_pop[
+    (peng_pop['year'].between(2012, 2022)) &
+    (peng_pop['common_name'] == 'emperor penguin')
+]
+
+peng_pop.head()
+
+This code sorts the penguin data by year, calculates the total population for each year, and creates a line graph showing how the population changes over time, with labels added to each data point.
+
+[ ]
+peng_pop = peng_pop.sort_values('year')
+
+peng_yearly = peng_pop.groupby('year')['penguin_count'].sum().reset_index()
+
+plt.figure(figsize=(8,5))
+
+plt.plot(peng_yearly['year'], peng_yearly['penguin_count'], marker='o')
+
+plt.xlabel('Year')
+plt.ylabel('Population')
+
+
+This code combines the penguin population data and the 2010 sea ice extent data into one dataset, so I can plot both on a graph to compare trends.
+
+[ ]
+comparison = pd.merge(
+    extent_yearly,
+    peng_yearly,
+    on='year',
+    how='left'
+)
+
+[ ]
+fig, ax1 = plt.subplots(figsize=(9,5))
+
+# Emperor Penguins
+ax1.plot(comparison['year'],
+         comparison['penguin_count'],
+         color='blue',
+         marker='o',
+         label='Penguins')
+
+ax1.set_ylabel('Penguin Population', color='blue')
+
+
+This code combines the penguin population data and the sea ice data into one dataset by matching them on the year, so I can plot both on a graph to compare trends.
+
+[ ]
+comparison = pd.merge(
+    peng_yearly,
+    extent_yearly,
+    on='year'
+)
+
+[ ]
+fig, ax1 = plt.subplots(figsize=(9,5))
+
+# Emperor penguins
+ax1.plot(comparison['year'], comparison['penguin_count'],
+         color='blue', marker='o', label='Penguins')
+
+ax1.set_ylabel('Penguin Population', color='blue')
+ax1.tick_params(axis='y', labelcolor='blue')
+
+# Sea ice extent on second axis
+
+
+Antarctica Sea Ice Comparison over the years 2014 (when sea ice was the highest) and 2022 (when sea ice was the lowest)
+
+Year 2014 Sea Ice Extent Data
+
+Sidenote: Asked chatgpt to help me figure out how I can showcase the sea ice extent shapefiles for the months of april, june, sept, and nov together.
+
+April is when the breeding season begins for Emperor Penguins where they display courtship behavior. This is also when the sea ice starts to reform. again and thicken to support thousands of penguins during this time.
+June is when the female emperor penguin lays a single egg and the male emperor penguin is tasked with keeping the egg warm until it hatches in late July/early August. This is when maximum winter conditions begin.
+September is when sea ice is widespread and the baby chicks are roaming around the area.
+November is when the baby chicks are larger and in groups with others and they are preparing for the molting process so they can be able to dive and be independent by late December/early January when the sea ice starts breaking.
+This code loads the several shapefiles containing sea ice extent for different months in 2014 and it amke sures that they can be read properly by enabling shapefile recovery. It then assigns all datasets the same Antarctic coordinate reference system so they align correctly for mapping and comparison.
+
+[ ]
+os.environ["SHAPE_RESTORE_SHX"] = "YES" # recover missing shapefile index files
+
+# Load sea ice polygons
+ice_apr = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201404_polygon_v4.0.shp")
+ice_jun = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201406_polygon_v4.0.shp")
+ice_sep = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201409_polygon_v4.0.shp")
+ice_nov = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_201411_polygon_v4.0.shp")
+
+for ice in [ice_apr, ice_jun, ice_sep, ice_nov]:
+    ice.set_crs("EPSG:3031", allow_override=True, inplace=True)
+This code is converting emperor penguin location data into a map ready format and puts it into the same coordinate system as the sea ice data so they can be analyzed or plotted together.
+
+[ ]
+# Load CSV
+peng_df = pd.read_csv("/content/drive/MyDrive/Geog 488 Project Data/EmperorPenguinCount.csv")
+
+# Convert to GeoDataFrame (lat/lon)
+geometry = [Point(xy) for xy in zip(peng_df['longitude_epsg_4326'], peng_df['latitude_epsg_4326'])]
+peng = gpd.GeoDataFrame(peng_df, geometry=geometry, crs="EPSG:4326")
+
+# Reproject emperor penguins to Antarctic projection
+peng_proj = peng.to_crs("EPSG:3031")
+This code prepares the Antarctica boundary so it matches the same map projection as the rest of the dataset, allowing all layers to be accurately overlaid on the same map.
+
+[ ]
+antarctica = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/Antarctica.shp")
+
+# Set the original CRS to EPSG:4326 before reprojecting
+antarctica = antarctica.set_crs("EPSG:4326", allow_override=True)
+
+# Make sure it's in the same CRS as your ice (EPSG:3031)
+antarctica = antarctica.to_crs("EPSG:3031")
+
+This code creates a side by side comparison of Antarctic sea ice and penguin locations across four months in 2014 to help visualize seasonal changes.
+
+fig, axes = plt.subplots(1, 4, figsize=(22, 6))
+
+datasets_2014 = {
+    "April": ice_apr,
+    "June": ice_jun,
+    "September": ice_sep,
+    "November": ice_nov
+}
+
+colors = {
+    "April": "#d0f0ff",
+    "June": "#99d6ff",
+    "September": "#4db8ff",
+    "November": "#007acc"
+}
+
+for ax, (title, data) in zip(axes, datasets_2014.items()):
+
+    # Sea ice
+    data.plot(
+        ax=ax,
+        color=colors[title],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    # Penguins
+    peng_proj.plot(ax=ax, color="darkred", markersize=10)
+
+    ax.set_title(title, fontsize=14)
+    ax.set_axis_off()
+
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+plt.tight_layout()
+plt.show()
+
+Year 2022 Sea Ice Extent Data
+
+Did the same thing for the year 2022
+
+ice_apr_2022 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202204_polygon_v4.0.shp")
+ice_jun_2022 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202206_polygon_v4.0.shp")
+ice_sep_2022 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202209_polygon_v4.0.shp")
+ice_nov_2022 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202211_polygon_v4.0.shp")
+
+for ice in [ice_apr_2022, ice_jun_2022, ice_sep_2022, ice_nov_2022]:
+    ice.set_crs("EPSG:3031", allow_override=True, inplace=True)
+
+fig, axes = plt.subplots(1, 4, figsize=(22, 6))
+
+datasets_2022 = {
+    "April": ice_apr_2022,
+    "June": ice_jun_2022,
+    "September": ice_sep_2022,
+    "November": ice_nov_2022
+}
+
+colors_2022 = {
+    "April": "#d0f0ff",
+    "June": "#99d6ff",
+    "September": "#4db8ff",
+    "November": "#007acc"
+}
+
+for ax, (title, data) in zip(axes, datasets_2022.items()):
+
+    data.plot(
+        ax=ax,
+        color=colors_2022[title],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=10)
+
+    ax.set_title(title, fontsize=14)
+    ax.set_axis_off()
+
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+plt.tight_layout()
+plt.show()
+
+Comparing 2014 to 2022 Sea Ice Extent Data together
+
+This code visually compares how sea ice extent and penguin locations change across the same seasons between 2014 and 2022.
+
+fig, axes = plt.subplots(2, 4, figsize=(22, 10), sharex=True, sharey=True)
+
+months = ["April", "June", "September", "November"]
+
+colors = {
+    "April": "#d0f0ff",
+    "June": "#99d6ff",
+    "September": "#4db8ff",
+    "November": "#007acc"
+}
+
+# Row 1 2014
+for i, month in enumerate(months): # loops through each month and selects the correct map in the second row of the figure
+    ax = axes[0, i]
+
+    data = datasets_2014[month]
+
+    data.plot(
+        ax=ax,
+        color=colors[month],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=8)
+
+    ax.set_title(f"{month} 2014", fontsize=13)
+    ax.set_axis_off()
+
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+# Row 2 2022
+for i, month in enumerate(months):
+    ax = axes[1, i]
+
+    data = datasets_2022[month]
+
+    data.plot(
+        ax=ax,
+        color=colors[month],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=8)
+
+    ax.set_title(f"{month} 2022", fontsize=13)
+    ax.set_axis_off()
+
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+plt.tight_layout()
+plt.show()
+
+Out of curiousity 2025 Sea Ice Extent Data
+
+This is just for me to see how sea extent changed from 2022 to 2025
+
+ice_apr_2025 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202504_polygon_v4.0.shp")
+ice_jun_2025 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202506_polygon_v4.0.shp")
+ice_sep_2025 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202509_polygon_v4.0.shp")
+ice_nov_2025 = gpd.read_file("/content/drive/MyDrive/Geog 488 Project Data/extent_S_202511_polygon_v4.0.shp")
+
+for ice in [ice_apr_2025, ice_jun_2025, ice_sep_2025, ice_nov_2025]:
+    ice.set_crs("EPSG:3031", allow_override=True, inplace=True)
+
+fig, axes = plt.subplots(1, 4, figsize=(22, 6))
+
+datasets_2025 = {
+    "April": ice_apr_2025,
+    "June": ice_jun_2025,
+    "September": ice_sep_2025,
+    "November": ice_nov_2025
+}
+
+colors_2025 = {
+    "April": "#d0f0ff",
+    "June": "#99d6ff",
+    "September": "#4db8ff",
+    "November": "#007acc"
+}
+
+for ax, (title, data) in zip(axes, datasets_2025.items()):
+
+    data.plot(
+        ax=ax,
+        color=colors_2025[title],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=10)
+
+    ax.set_title(title, fontsize=14)
+    ax.set_axis_off()
+
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+plt.tight_layout()
+plt.show()
+
+import matplotlib as mpl
+# Reduce rendering stress (fixes shaking)
+mpl.rcParams['figure.dpi'] = 90
+
+fig, axes = plt.subplots(
+    3, 4,
+    figsize=(22, 12),
+    sharex=True,
+    sharey=True,
+    constrained_layout=True
+)
+
+months = ["April", "June", "September", "November"]
+
+colors = {
+    "April": "#d0f0ff",
+    "June": "#99d6ff",
+    "September": "#4db8ff",
+    "November": "#007acc"
+}
+
+# Row 1: 2014
+
+for i, month in enumerate(months):
+    ax = axes[0, i]
+
+    datasets_2014[month].plot(
+        ax=ax,
+        color=colors[month],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=8)
+
+    ax.set_title(f"{month} 2014")
+    ax.set_axis_off()
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+# Row 2: 2022
+for i, month in enumerate(months):
+    ax = axes[1, i]
+
+    datasets_2022[month].plot(
+        ax=ax,
+        color=colors[month],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=8)
+
+    ax.set_title(f"{month} 2022")
+    ax.set_axis_off()
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+# Row 3: 2025
+
+for i, month in enumerate(months):
+    ax = axes[2, i]
+
+    datasets_2025[month].plot(
+        ax=ax,
+        color=colors[month],
+        edgecolor="black",
+        linewidth=0.3
+    )
+
+    peng_proj.plot(ax=ax, color="darkred", markersize=8)
+
+    ax.set_title(f"{month} 2025")
+    ax.set_axis_off()
+    ax.set_xlim(-3e6, 3e6)
+    ax.set_ylim(-3e6, 3e6)
+
+plt.show()
+
+Results/Conclusion
+
+In 2014, the ice covered a larger and more continuous area. In 2022, and especially in 2025, there was less ice and it melted earlier. When emperor penguin colonies are added to the map, they appear closer to the edge of the ice in the later years, especially in 2025. This means there may be less stable ice for breeding and a higher risk that the ice breaks up too early.
+
+Overall, the decrease in sea ice in recent years suggests that Antarctic conditions may be becoming less stable. Since emperor penguins rely on stable sea ice for breeding, the shift toward less ice and earlier melting could make it harder for colonies to successfully raise their chicks. If this trend continues, it could have negative impacts on emperor penguin populations in the future.
